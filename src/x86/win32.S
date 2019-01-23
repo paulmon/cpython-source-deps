@@ -137,6 +137,7 @@ ca_jumpdata:
         dd offset ca_retint64       ;; FFI_TYPE_SINT64
         dd offset ca_epilogue       ;; FFI_TYPE_STRUCT
         dd offset ca_retint         ;; FFI_TYPE_POINTER
+        dd offset ca_retint         ;; FFI_TYPE_COMPLEX
         dd offset ca_retstruct1b    ;; FFI_TYPE_SMALL_STRUCT_1B
         dd offset ca_retstruct2b    ;; FFI_TYPE_SMALL_STRUCT_2B
         dd offset ca_retint         ;; FFI_TYPE_SMALL_STRUCT_4B
@@ -268,6 +269,7 @@ cs_jumpdata:
         dd offset cs_retint64       ;; FFI_TYPE_SINT64
         dd offset cs_retstruct      ;; FFI_TYPE_STRUCT
         dd offset cs_retint         ;; FFI_TYPE_POINTER
+        dd offset ca_retint         ;; FFI_TYPE_COMPLEX
         dd offset cs_retsint8       ;; FFI_TYPE_SMALL_STRUCT_1B
         dd offset cs_retsint16      ;; FFI_TYPE_SMALL_STRUCT_2B
         dd offset cs_retint         ;; FFI_TYPE_SMALL_STRUCT_4B
@@ -377,6 +379,7 @@ cr_jumpdata:
         dd offset cr_retint64       ;; FFI_TYPE_SINT64
         dd offset cr_epilogue       ;; FFI_TYPE_STRUCT
         dd offset cr_retint         ;; FFI_TYPE_POINTER
+        dd offset ca_retint         ;; FFI_TYPE_COMPLEX
         dd offset cr_retsint8       ;; FFI_TYPE_SMALL_STRUCT_1B
         dd offset cr_retsint16      ;; FFI_TYPE_SMALL_STRUCT_2B
         dd offset cr_retint         ;; FFI_TYPE_SMALL_STRUCT_4B
@@ -463,6 +466,7 @@ cd_jumpdata:
         dd offset cd_retint64       ;; FFI_TYPE_SINT64
         dd offset cd_epilogue       ;; FFI_TYPE_STRUCT
         dd offset cd_retint         ;; FFI_TYPE_POINTER
+        dd offset ca_retint         ;; FFI_TYPE_COMPLEX
         dd offset cd_retsint8       ;; FFI_TYPE_SMALL_STRUCT_1B
         dd offset cd_retsint16      ;; FFI_TYPE_SMALL_STRUCT_2B
         dd offset cd_retint         ;; FFI_TYPE_SMALL_STRUCT_4B
