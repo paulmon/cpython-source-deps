@@ -56,7 +56,8 @@ ZCW: This is patched by us to avoid having to keep two mostly-identical files.
 #endif
 */
 
-#ifdef MS_WIN64
+#ifdef _MSC_VER
+#ifdef _WIN64
 # ifndef X86_WIN64
 #  define X86_WIN64
 # endif
@@ -65,6 +66,7 @@ ZCW: This is patched by us to avoid having to keep two mostly-identical files.
 #  define X86_WIN32
 # endif
 #endif
+#endif /* _MSC_VER */
 
 /* --- End CPython patch --- */
 
