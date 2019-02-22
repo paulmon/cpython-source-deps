@@ -248,13 +248,13 @@ call_epilogue
     ldmfd sp!, {fp,pc}
     ENDP
 
-
+    AREA |.trampoline|, DATA, THUMB, READONLY
     EXPORT |ffi_arm_trampoline|
-|ffi_arm_trampoline| PROC
+|ffi_arm_trampoline| DATA
 thisproc    adr    ip, thisproc
             stmdb  sp!, {ip, r0}
-            ldr    pc, =closure
-closure     DCD    0
-            ENDP
+            ldr    pc, [pc, #0]
+            DCD    0
+            ;ENDP
 
     END

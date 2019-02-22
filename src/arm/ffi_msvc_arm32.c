@@ -64,7 +64,11 @@ WINBASEAPI HANDLE WINAPI GetCurrentProcess(VOID);
 #endif
 
 #else
+#ifndef _M_ARM
 extern unsigned int ffi_arm_trampoline[2] FFI_HIDDEN;
+#else
+extern unsigned int ffi_arm_trampoline[3] FFI_HIDDEN;
+#endif
 #endif
 
 /* Forward declares. */
@@ -110,14 +114,19 @@ ffi_put_arg (ffi_type *ty, void *src, void *dst)
     case FFI_TYPE_SINT32:
     case FFI_TYPE_UINT32:
     case FFI_TYPE_POINTER:
-    //case FFI_TYPE_FLOAT:
+#ifndef _MSC_VER
+    case FFI_TYPE_FLOAT:
+#endif
       *(UINT32 *)dst = *(UINT32 *)src;
       break;
 
+#ifdef _MSC_VER
+    // casting a float* to a UINT32* doesn't work on Windows
     case FFI_TYPE_FLOAT:
         *(uintptr_t *)dst = 0;
         *(float *)dst = *(float *)src;
         break;
+#endif
 
     case FFI_TYPE_SINT64:
     case FFI_TYPE_UINT64:
@@ -598,30 +607,14 @@ ffi_prep_closure_loc (ffi_closure * closure,
   config[0] = closure;
   config[1] = closure_func;
 #else
-#ifdef _M_ARM
-  //memcpy (closure->tramp, ffi_arm_trampoline, 8);
-  char *tramp = &closure->tramp[0];
 
-#define BYTES(text) memcpy(tramp, text, sizeof(text)), tramp += sizeof(text)-1
-#define POINTER(x) *(void**)tramp = (void*)(x), tramp += sizeof(void*)
-#define SHORT(x) *(short*)tramp = x, tramp += sizeof(short)
-#define INT(x) *(int*)tramp = x, tramp += sizeof(int)
-
-  /* af f2 04 03   adr ip, ffi_arm_trampoline (copy &closure to ip) */
-  BYTES("\xAF\xF2\x04\x0C");
-
-//  /* 2d E9 07 10 stmdb sp!, {ip, r0-r2} */
-//  BYTES("\x2D\xE9\x07\x10");
-  /* 2d e9 01 10 stmdb sp!, {ip, r0} */
-  BYTES("\x2D\xE9\x01\x10");
-
-
-  /*df f8 01 f0   ldr pc, closure_func*/
-  BYTES("\xDF\xF8\x00\xF0");
-  POINTER(closure_func);
-#else
+#ifndef _M_ARM
   memcpy(closure->tramp, ffi_arm_trampoline, 8);
+#else
+  uintptr_t func = (uintptr_t)ffi_arm_trampoline & 0xFFFFFFFE;
+  memcpy(closure->tramp, func, 12);
 #endif
+
 #if defined (__QNX__)
   msync(closure->tramp, 8, 0x1000000);	/* clear data map */
   msync(codeloc, 8, 0x1000000);	/* clear insn map */
@@ -631,7 +624,9 @@ ffi_prep_closure_loc (ffi_closure * closure,
   __clear_cache(closure->tramp, closure->tramp + 8);	/* clear data map */
   __clear_cache(codeloc, codeloc + 8);			/* clear insn map */
 #endif
-#ifndef _M_ARM
+#ifdef _M_ARM
+  *(void(**)(void))(closure->tramp + 12) = closure_func;
+#else
   *(void (**)(void))(closure->tramp + 8) = closure_func;
 #endif
 #endif
