@@ -30,10 +30,9 @@
 #include <ffi.h>
 #include <ffi_cfi.h>
 #include "internal.h"
+#define E(index,table) return_##index##_##table
 
-    AREA |.text|, CODE, THUMB, READONLY     ; .text
-
-
+    AREA |.ffi_call|, CODE, CODEALIGN, ALIGN=3, THUMB, READONLY
     EXPORT |ffi_call_VFP|
     ; r0:   stack
     ; r1:   frame
@@ -67,42 +66,44 @@
     ; Deallocate the stack with the arguments.
     mov    sp, fp
 
-return_vfp_s
-    cmp r3, #ARM_TYPE_VFP_S
-    bne return_vfp_d
+    ; Store values stored in registers.
+    ALIGN 8
+    lsl     r3, #3
+    add     r3, r3, pc
+    add     r3, #8
+    mov     pc, r3
+
+|ffi_call_arm32_tab|
+
+E(ARM_TYPE_VFP_S, ffi_call)
+    ALIGN 8
     vstr s0, [r2]
     pop    {fp,pc}
-return_vfp_d
-    cmp r3, #ARM_TYPE_VFP_D
-    bne return_vfp_n
+E(ARM_TYPE_VFP_D, ffi_call)
+    ALIGN 8
     vstr d0, [r2]
     pop    {fp,pc}
-return_vfp_n
-    cmp r3, #ARM_TYPE_VFP_N
-    bne return_int64
+E(ARM_TYPE_VFP_N, ffi_call)
+    ALIGN 8
     vstm r2, {d0-d3}
     pop    {fp,pc}
-return_int64
-    cmp r3, #ARM_TYPE_INT64
-    bne return_int
+E(ARM_TYPE_INT64, ffi_call)
+    ALIGN 8
     str    r1, [r2, #4]
+    nop
+E(ARM_TYPE_INT, ffi_call)
+    ALIGN 8
     str    r0, [r2]
     pop    {fp,pc}
-return_int
-    cmp r3, #ARM_TYPE_INT
-    bne return_void
-    str    r0, [r2]
-    pop    {fp,pc}
-return_void
-    cmp r3, #ARM_TYPE_VOID
-    bne return_struct
+E(ARM_TYPE_VOID, ffi_call)
+    ALIGN 8
     pop    {fp,pc}
     nop
-return_struct
+E(ARM_TYPE_STRUCT, ffi_call)
+    ALIGN 8
     cmp r3, #ARM_TYPE_STRUCT
     pop    {fp,pc}
     ENDP
-
 
     IMPORT |ffi_closure_inner_SYSV|
     /*
@@ -210,40 +211,41 @@ ffi_go_closure_VFP_0
 
     EXPORT |ffi_closure_ret|
 |ffi_closure_ret| PROC
-return_vfp_s_2
     stmdb sp!, {fp,lr}
-    cmp r0, #ARM_TYPE_VFP_S
-    bne return_vfp_f_2
+
+    ALIGN 8
+    lsl     r0, #3
+    add     r0, r0, pc
+    add     r0, #8
+    mov     pc, r0
+
+E(ARM_TYPE_VFP_S, ffi_closure)
+    ALIGN 8
     vldr s0, [r2]
-    beq call_epilogue
-return_vfp_f_2
-    cmp r0, #ARM_TYPE_VFP_D
-    bne return_vfp_n_2
+    b call_epilogue
+E(ARM_TYPE_VFP_D, ffi_closure)
+    ALIGN 8
     vldr d0, [r2]
-    beq call_epilogue
-return_vfp_n_2
-    cmp r0, #ARM_TYPE_VFP_N
-    bne return_vfp_int64_2
+    b call_epilogue
+E(ARM_TYPE_VFP_N, ffi_closure)
+    ALIGN 8
     vldm r2, {d0-d3}
-    beq call_epilogue
-return_vfp_int64_2
-    cmp r0, #ARM_TYPE_INT64
-    bne return_vfp_int_2
+    b call_epilogue
+E(ARM_TYPE_INT64, ffi_closure)
+    ALIGN 8
     ldr    r1, [r2, #4]
+    nop
+E(ARM_TYPE_INT, ffi_closure)
+    ALIGN 8
     ldr    r0, [r2]
-    beq call_epilogue
-return_vfp_int_2
-    cmp r0, #ARM_TYPE_INT
-    bne return_vfp_void_2
-    ldr    r0, [r2]
-    beq call_epilogue
-return_vfp_void_2
-    cmp r0, #ARM_TYPE_VOID
-    bne return_vfp_struct_2
-    beq call_epilogue
-return_vfp_struct_2
-    cmp r0, #ARM_TYPE_STRUCT
-    beq call_epilogue
+    b call_epilogue
+E(ARM_TYPE_VOID, ffi_closure)
+    ALIGN 8
+    b call_epilogue
+    nop
+E(ARM_TYPE_STRUCT, ffi_closure)
+    ALIGN 8
+    b call_epilogue
 call_epilogue
     ldmfd sp!, {fp,pc}
     ENDP

@@ -77,6 +77,7 @@ typedef enum ffi_abi {
 #else
 #ifdef _MSC_VER
 #define FFI_TRAMPOLINE_SIZE 16
+#define FFI_TRAMPOLINE_CLOSURE_FUNCTION 12
 #else
 #define FFI_TRAMPOLINE_SIZE 12
 #endif

@@ -37,23 +37,9 @@
 
 #if defined(_MSC_VER) && defined(_M_ARM)
 #define WIN32_LEAN_AND_MEAN
-#define DECLSPEC_IMPORT __declspec(dllimport)
-#define WINBASEAPI DECLSPEC_IMPORT
-#define WINAPI      __stdcall
-#define CONST               const
-typedef int                 BOOL;
-#define far
-typedef CONST void far      *LPCVOID;
-typedef void *HANDLE;
-typedef _W64 unsigned long ULONG_PTR, *PULONG_PTR;
-typedef ULONG_PTR SIZE_T, *PSIZE_T;
-WINBASEAPI BOOL __stdcall FlushInstructionCache(
-    _In_ HANDLE hProcess,
-    _In_reads_bytes_opt_(dwSize) LPCVOID lpBaseAddress,
-    _In_ SIZE_T dwSize
-);
-WINBASEAPI HANDLE WINAPI GetCurrentProcess(VOID);
+#include <windows.h>
 #endif
+
 #if FFI_EXEC_TRAMPOLINE_TABLE
 
 #ifdef __MACH__
@@ -608,21 +594,21 @@ ffi_prep_closure_loc (ffi_closure * closure,
 #ifndef _M_ARM
   memcpy(closure->tramp, ffi_arm_trampoline, 8);
 #else
-  uintptr_t func = (uintptr_t)ffi_arm_trampoline & 0xFFFFFFFE;
-  memcpy(closure->tramp, func, 12);
+  // cast away function type so MSVC doesn't set the lower bit of the function pointer
+  memcpy(closure->tramp, (void*)((uintptr_t)ffi_arm_trampoline & 0xFFFFFFFE), FFI_TRAMPOLINE_CLOSURE_OFFSET);
 #endif
 
 #if defined (__QNX__)
   msync(closure->tramp, 8, 0x1000000);	/* clear data map */
   msync(codeloc, 8, 0x1000000);	/* clear insn map */
 #elif defined(_MSC_VER)
-  FlushInstructionCache(GetCurrentProcess(), 0, 0);
+  FlushInstructionCache(GetCurrentProcess(), closure->tramp, FFI_TRAMPOLINE_SIZE);
 #else
   __clear_cache(closure->tramp, closure->tramp + 8);	/* clear data map */
   __clear_cache(codeloc, codeloc + 8);			/* clear insn map */
 #endif
 #ifdef _M_ARM
-  *(void(**)(void))(closure->tramp + 12) = closure_func;
+  *(void(**)(void))(closure->tramp + FFI_TRAMPOLINE_CLOSURE_FUNCTION) = closure_func;
 #else
   *(void (**)(void))(closure->tramp + 8) = closure_func;
 #endif
