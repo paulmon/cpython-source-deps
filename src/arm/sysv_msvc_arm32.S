@@ -78,6 +78,8 @@ __FuncExceptionHandler SETS    "|$ExceptHandler|"
     ; r2:   fn
     ; r3:   vfp_used
 
+    ; fake entry point exists only to generate exists only to 
+    ; generate .pdata for exception unwinding
     NESTED_ENTRY_FFI ffi_call_VFP_fake
     PROLOG_PUSH  {r11, lr}          ; save fp and lr for unwind
 
@@ -89,6 +91,8 @@ __FuncExceptionHandler SETS    "|$ExceptHandler|"
     b ffi_call_SYSV
     NESTED_END ffi_call_VFP_fake
 
+    ; fake entry point exists only to generate exists only to 
+    ; generate .pdata for exception unwinding
     NESTED_ENTRY_FFI ffi_call_SYSV_fake
     PROLOG_PUSH  {r11, lr}          ; save fp and lr for unwind
 
@@ -169,7 +173,11 @@ E(ARM_TYPE_STRUCT, ffi_call)
 
     ; r3:    ffi_closure
 
-    NESTED_ENTRY_FFI ffi_closure_SYSV
+    ; fake entry point exists only to generate exists only to 
+    ; generate .pdata for exception unwinding
+    NESTED_ENTRY_FFI ffi_closure_SYSV_fake  
+    PROLOG_PUSH  {r11, lr}          ; save fp and lr for unwind
+    ALTERNATE_ENTRY ffi_closure_SYSV
     ldmfd   sp!, {ip,r0}            ; restore fp (r0 is used for stack alignment)
     stmdb   sp!, {r0-r3}            ; save argument regs
 
@@ -177,7 +185,7 @@ E(ARM_TYPE_STRUCT, ffi_call)
     ldr     r1, [ip, #FFI_TRAMPOLINE_CLOSURE_OFFSET+4]  ; ffi_closure->fun
     ldr     r2, [ip, #FFI_TRAMPOLINE_CLOSURE_OFFSET+8]  ; ffi_closure->user_data
 
-ffi_go_closure_SYSV_0
+    ALTERNATE_ENTRY ffi_go_closure_SYSV_0
     add     ip, sp, #16             ; compute entry sp
 
     sub     sp, sp, #64+32          ; allocate frame parameter (sizeof(vfp_space) = 64, sizeof(result) = 32)
@@ -193,7 +201,7 @@ ffi_go_closure_SYSV_0
     ldmfd   sp!, {ip,lr}
     mov     sp, ip                  ; restore stack pointer
     mov     pc, lr
-    NESTED_END ffi_closure_SYSV
+    NESTED_END ffi_closure_SYSV_fake
 
     IMPORT |ffi_closure_inner_VFP|
     /*
@@ -214,8 +222,13 @@ ffi_go_closure_SYSV_0
     b	ffi_go_closure_VFP_0
     NESTED_END ffi_go_closure_VFP
 
+    ; fake entry point exists only to generate exists only to 
+    ; generate .pdata for exception unwinding
     ; r3:    closure
-    NESTED_ENTRY_FFI ffi_closure_VFP
+    NESTED_ENTRY_FFI ffi_closure_VFP_fake
+    PROLOG_PUSH  {r11, lr}          ; save fp and lr for unwind
+
+    ALTERNATE_ENTRY ffi_closure_VFP
     ldmfd   sp!, {ip,r0}            ; restore fp (r0 is used for stack alignment)
     stmdb   sp!, {r0-r3}            ; save argument regs
 
@@ -223,7 +236,7 @@ ffi_go_closure_SYSV_0
     ldr     r1, [ip, #FFI_TRAMPOLINE_CLOSURE_OFFSET+4]  ; load fun
     ldr     r2, [ip, #FFI_TRAMPOLINE_CLOSURE_OFFSET+8]  ; load user_data
 
-ffi_go_closure_VFP_0
+    ALTERNATE_ENTRY ffi_go_closure_VFP_0
     add     ip, sp, #16             ; compute entry sp
     sub     sp, sp, #32             ; save space for closure_frame->result
     vstmdb  sp!, {d0-d7}            ; push closure_frame->vfp_space
@@ -239,7 +252,7 @@ ffi_go_closure_VFP_0
     ldmfd   sp!, {ip,lr}
     mov     sp, ip                  ; restore stack pointer
     mov     pc, lr
-    NESTED_END ffi_closure_VFP
+    NESTED_END ffi_closure_VFP_fake
 
 /* Load values returned in registers for both closure entry points.
    Note that we use LDM with SP in the register set.  This is deprecated
