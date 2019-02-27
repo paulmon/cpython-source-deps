@@ -148,6 +148,7 @@ E(ARM_TYPE_STRUCT, ffi_call)
     pop    {fp,pc}
     NESTED_END ffi_call_SYSV_fake
 
+    IMPORT |ffi_closure_inner_SYSV|
     /*
     int ffi_closure_inner_SYSV
     (
