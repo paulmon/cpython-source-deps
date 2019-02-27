@@ -30,25 +30,69 @@
 #include <ffi.h>
 #include <ffi_cfi.h>
 #include "internal.h"
+#include "ksarm.h"
+
+
+        ; 8 byte aligned AREA to support 8 byte aligned jump tables
+        MACRO
+        NESTED_ENTRY_FFI $FuncName, $AreaName, $ExceptHandler
+
+        ; compute the function's labels
+        __DeriveFunctionLabels $FuncName
+
+        ; determine the area we will put the function into
+__FuncArea   SETS    "|.text|"
+        IF "$AreaName" != ""
+__FuncArea   SETS    "$AreaName"
+        ENDIF
+
+        ; set up the exception handler itself
+__FuncExceptionHandler SETS ""
+        IF "$ExceptHandler" != ""
+__FuncExceptionHandler SETS    "|$ExceptHandler|"
+        ENDIF
+
+        ; switch to the specified area, jump tables require 8 byte alignment
+        AREA    $__FuncArea,CODE,CODEALIGN,ALIGN=3,READONLY
+
+        ; export the function name
+        __ExportProc $FuncName
+
+        ; flush any pending literal pool stuff
+        ROUT
+
+        ; reset the state of the unwind code tracking
+        __ResetUnwindState
+
+        MEND
+
+;        MACRO
+;        TABLE_ENTRY $Type, $Table
+;$Type_$Table
+;        MEND
+
 #define E(index,table) return_##index##_##table
 
-    AREA |.ffi_call|, CODE, CODEALIGN, ALIGN=3, THUMB, READONLY
-    EXPORT |ffi_call_VFP|
     ; r0:   stack
     ; r1:   frame
     ; r2:   fn
     ; r3:   vfp_used
 
-|ffi_call_VFP| PROC
+    NESTED_ENTRY_FFI ffi_call_VFP_fake
+    PROLOG_PUSH  {r11, lr}          ; save fp and lr for unwind
+
+    ALTERNATE_ENTRY ffi_call_VFP
     cmp    r3, #3                   ; load only d0 if possible
     vldrle d0, [r0]
     vldmgt r0, {d0-d7}
     add    r0, r0, #64              ; discard the vfp register args
-    /* FALLTHRU */
-    ENDP
+    b ffi_call_SYSV
+    NESTED_END ffi_call_VFP_fake
 
-    EXPORT |ffi_call_SYSV|
-|ffi_call_SYSV| PROC
+    NESTED_ENTRY_FFI ffi_call_SYSV_fake
+    PROLOG_PUSH  {r11, lr}          ; save fp and lr for unwind
+
+    ALTERNATE_ENTRY ffi_call_SYSV
     stm    r1, {fp, lr}
     mov    fp, r1
 
@@ -73,7 +117,6 @@
     add     r3, #8
     mov     pc, r3
 
-|ffi_call_arm32_tab|
 
 E(ARM_TYPE_VFP_S, ffi_call)
     ALIGN 8
@@ -103,9 +146,8 @@ E(ARM_TYPE_STRUCT, ffi_call)
     ALIGN 8
     cmp r3, #ARM_TYPE_STRUCT
     pop    {fp,pc}
-    ENDP
+    NESTED_END ffi_call_SYSV_fake
 
-    IMPORT |ffi_closure_inner_SYSV|
     /*
     int ffi_closure_inner_SYSV
     (
@@ -116,20 +158,17 @@ E(ARM_TYPE_STRUCT, ffi_call)
     )
     */
 
-    EXPORT |ffi_go_closure_SYSV|
-
-|ffi_go_closure_SYSV| PROC
+    NESTED_ENTRY_FFI ffi_go_closure_SYSV
     stmdb   sp!, {r0-r3}            ; save argument regs
     ldr     r0, [ip, #4]            ; load cif
     ldr     r1, [ip, #8]            ; load fun
     mov     r2, ip                  ; load user_data
     b       ffi_go_closure_SYSV_0
-	ENDP
+    NESTED_END ffi_go_closure_SYSV
 
-    EXPORT |ffi_closure_SYSV|
     ; r3:    ffi_closure
 
-|ffi_closure_SYSV| PROC
+    NESTED_ENTRY_FFI ffi_closure_SYSV
     ldmfd   sp!, {ip,r0}            ; restore fp (r0 is used for stack alignment)
     stmdb   sp!, {r0-r3}            ; save argument regs
 
@@ -153,8 +192,7 @@ ffi_go_closure_SYSV_0
     ldmfd   sp!, {ip,lr}
     mov     sp, ip                  ; restore stack pointer
     mov     pc, lr
-    ENDP
-
+    NESTED_END ffi_closure_SYSV
 
     IMPORT |ffi_closure_inner_VFP|
     /*
@@ -167,19 +205,16 @@ ffi_go_closure_SYSV_0
     )
     */
 
-    EXPORT |ffi_go_closure_VFP|
-
-|ffi_go_closure_VFP| PROC
+    NESTED_ENTRY_FFI ffi_go_closure_VFP
     stmdb   sp!, {r0-r3}			; save argument regs
     ldr	r0, [ip, #4]			; load cif
     ldr	r1, [ip, #8]			; load fun
     mov	r2, ip				; load user_data
     b	ffi_go_closure_VFP_0
-    ENDP
+    NESTED_END ffi_go_closure_VFP
 
-    EXPORT |ffi_closure_VFP|
     ; r3:    closure
-|ffi_closure_VFP| PROC
+    NESTED_ENTRY_FFI ffi_closure_VFP
     ldmfd   sp!, {ip,r0}            ; restore fp (r0 is used for stack alignment)
     stmdb   sp!, {r0-r3}            ; save argument regs
 
@@ -203,14 +238,13 @@ ffi_go_closure_VFP_0
     ldmfd   sp!, {ip,lr}
     mov     sp, ip                  ; restore stack pointer
     mov     pc, lr
-    ENDP
+    NESTED_END ffi_closure_VFP
 
 /* Load values returned in registers for both closure entry points.
    Note that we use LDM with SP in the register set.  This is deprecated
    by ARM, but not yet unpredictable.  */
 
-    EXPORT |ffi_closure_ret|
-|ffi_closure_ret| PROC
+    NESTED_ENTRY_FFI ffi_closure_ret
     stmdb sp!, {fp,lr}
 
     ALIGN 8
@@ -248,7 +282,7 @@ E(ARM_TYPE_STRUCT, ffi_closure)
     b call_epilogue
 call_epilogue
     ldmfd sp!, {fp,pc}
-    ENDP
+    NESTED_END ffi_closure_ret
 
     AREA |.trampoline|, DATA, THUMB, READONLY
     EXPORT |ffi_arm_trampoline|
