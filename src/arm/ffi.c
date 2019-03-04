@@ -28,6 +28,7 @@
    DEALINGS IN THE SOFTWARE.
    ----------------------------------------------------------------------- */
 
+#if defined(__arm__) || defined(_M_ARM)
 #include <fficonfig.h>
 #include <ffi.h>
 #include <ffi_common.h>
@@ -229,7 +230,7 @@ ffi_prep_args_VFP (ffi_cif *cif, int flags, void *rvalue,
 }
 
 /* Perform machine dependent cif processing */
-ffi_status
+ffi_status FFI_HIDDEN
 ffi_prep_cif_machdep (ffi_cif *cif)
 {
   int flags = 0, cabi = cif->abi;
@@ -320,7 +321,7 @@ ffi_prep_cif_machdep (ffi_cif *cif)
 }
 
 /* Perform machine dependent cif processing for variadic calls */
-ffi_status
+ffi_status FFI_HIDDEN
 ffi_prep_cif_machdep_var (ffi_cif * cif,
 			  unsigned int nfixedargs, unsigned int ntotalargs)
 {
@@ -849,3 +850,5 @@ layout_vfp_args (ffi_cif * cif)
 	break;
     }
 }
+
+#endif /* __arm__ or _M_ARM */
